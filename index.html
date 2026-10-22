@@ -817,8 +817,8 @@ function harvest(i){const pl=S.plots[i];if(pl.s<0||plotLeft(pl)>0)return;const F
 const blocked=()=>S.L%10===0&&!S.boss[S.L];
 const bossReady=()=>blocked()&&S.xp>=xpNeed(S.L)&&!S.fruit.boss;
 let bossEnd=0;const bossDur=()=>30+(starOn('reloj')?15:0);
-function startBoss(){const F=fx();const max=40*Math.pow(1.19,S.L-1)*hpMul()*12;S.fruit={r:3,hp:max,max,t:tierIdx(S.L),boss:1};bornAt=performance.now();
-  bossEnd=performance.now()+bossDur()*1000;sfx('portal');toast('¡El <b style="color:#ff6b8a">guardián</b> despierta! Rómpelo antes de que acabe el tiempo');}
+function startBoss(){const F=fx();const max=40*Math.pow(1.19,S.L-1)*hpMul()*(20+0.25*S.L);S.fruit={r:3,hp:max,max,t:tierIdx(S.L),boss:1};bornAt=performance.now();
+  bossEnd=performance.now()+bossDur()*1000;sfx('portal');toast('¡El <b style="color:#ff6b8a">guardián</b> despierta! Rómpelo antes de que acabe el tiempo. Si dejas de golpear, se cura');}
 function defeatBoss(){const F=fx();const g=fruitSv(S.L,F)*60;gain(g);S.boss[S.L]=1;S.sp++;burst(3,S.fruit.t);burst(2,S.fruit.t);sfx('lvl');
   toast('<b style="color:#ff6b8a">Guardián derrotado</b> · +'+fmt(g)+' savia · +1 punto de habilidad');dropAmulet(2,F,false,1);S.st.boss=(S.st.boss||0)+1;newFruit();addXp(0);}
 function chalCheck(){if(!S.chal)return;const id=S.chal,n=chN(id);if(n>=3){S.chal=null;return;}if(S.L>=CHAL_GOAL[n]){S.chalDone[id]=n+1;S.chal=null;bumpFx();sfx('ach');const C2=CHAL.find(c=>c.id===id);
@@ -907,7 +907,7 @@ const GUIDES={
  po:['Portal','El portal te devuelve al nivel 1 a cambio de esencia, la moneda que automatiza el bosque. Rellena sus tres fases (unas ofrendas se cumplen jugando y otras se entregan con Ofrecer) y coloca 8 llaves rúnicas en su anillo de piedra.'],
  ru:['Fruto rúnico','Con el botón de la runa, arriba a la izquierda del jardín, cambias a frutos rúnicos. Son más duros y dan menos savia y experiencia, pero cada uno puede soltar una llave rúnica para el portal. El porcentaje sube con la suerte y con la rareza del fruto.'],
  sa:['Santuario','Gasta aquí la esencia. El viento cosecha por ti, el jardinero compra mejoras, el mensajero recoge misiones y las criaturas te ayudan cada una a su manera. Nada de esto se pierde al cruzar el portal.'],
- boss:['Guardianes','Cada 10 niveles un guardián bloquea el camino. Tienes 30 segundos para romperlo, así que toca lo más rápido que puedas. Si no llegas, mejora tu fuerza y vuelve a intentarlo.'],
+ boss:['Guardianes','Cada 10 niveles un guardián bloquea el camino. Es mucho más duro que un fruto: tienes 30 segundos para romperlo y, si dejas de golpear, se va curando. Si no llegas, mejora tu fuerza, sube la maestría o equípate mejores amuletos y vuelve a intentarlo.'],
  es:['Estaciones','Las estaciones han despertado y cada una cambia las reglas del bosque. Cruza tres portales en una estación para pasar a la siguiente y ganar un sello permanente.'],
  cs:['Constelaciones','Has completado el ciclo de las cuatro estaciones. Ahora puedes ascender: pierdes casi todo, pero ganas polvo estelar para encender estrellas con bonus enormes y permanentes.']};
 function guide(id){if(!S.guides)S.guides={};if(S.guides[id])return;S.guides[id]=1;storyQ.push('g:'+id);}
@@ -1304,6 +1304,7 @@ function tick(dt){const F=fx();
   if(S.event){S.event.left-=dt;if(S.event.left<=0){toast('Termina la <b>'+EVENTS.find(e=>e.k===S.event.k).n.toLowerCase()+'</b>');S.event=null;bumpFx();}}
   else if(S.frutos>30){S.evNext-=dt;if(S.evNext<=0){const E=EVENTS[Math.floor(Math.random()*EVENTS.length)];S.event={k:E.k,left:150};S.evNext=1200+Math.random()*1200;S.st.events=(S.st.events||0)+1;bumpFx();
     if(E.k==='estrellas')visT=2;sfx('vis');toast('Empieza un evento: <b style="color:'+E.col+'">'+E.n+'</b> · '+E.d.toLowerCase());}}
+  if(S.fruit.boss&&S.fruit.hp>0)S.fruit.hp=Math.min(S.fruit.max,S.fruit.hp+S.fruit.max*0.02*dt);
   if(S.fruit.boss&&performance.now()>bossEnd){toast('El guardián se ha escapado. Hazte más fuerte y vuelve a intentarlo');newFruit();}
   for(const b of buffs)b.left-=dt;if(buffs.length){const n=buffs.length;buffs=buffs.filter(b=>b.left>0);if(buffs.length!==n)bumpFx();}
   if(vis){vis.t+=dt;if(cr('zorro')&&vis.t>2)catchVis();else if(vis.t>8)vis=null;}else{visT-=dt;if(visT<=0){visT=evOn('estrellas')?5+Math.random()*4:(60+Math.random()*60)/(1+0.1*lv('nectar'))*(NA>0.5?0.6:1)*(biome()===1?0.5:1);const k=VIS[roll(VIS.map(v=>v.w))].k;vis={k,t:0,dir:Math.random()<0.5?1:-1,y:H*(0.25+Math.random()*0.3)};}}
