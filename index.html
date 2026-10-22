@@ -219,7 +219,9 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   border:1px solid var(--line2);border-radius:16px;padding:14px 16px;box-shadow:0 0 40px -10px var(--accent);animation:tin .4s ease-out;cursor:pointer}
 .story small{font:600 10px var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--accent2)}
 .story h4{margin:4px 0 6px;font-family:var(--display);font-weight:800;font-size:18px}
-.story p{margin:0;font-size:14px;line-height:1.55;color:var(--fg);max-width:60ch}
+.story p{margin:0;font-size:14px;line-height:1.55;color:var(--toastfg);max-width:60ch}
+.story em{color:var(--toastfg)!important;opacity:.6}
+.rlist{display:block;line-height:1.7}
 .story em{display:block;margin-top:8px;font-style:normal;font-size:11px;color:var(--muted)}
 .seg{display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px;overflow-x:auto}
 .seg button{flex:1;background:none;border:0;color:var(--muted);font:600 12px var(--body);padding:7px 8px;border-radius:9px;cursor:pointer;white-space:nowrap}
@@ -330,6 +332,14 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .fi-row b,.fi-rar b{font-weight:600;color:var(--fg)}
 .fi-rar span i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
 @media (max-height:700px){.fi-rar{display:none}}
+.chal{background:var(--bg2);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.chal.act{box-shadow:0 0 16px -6px var(--c);border-color:var(--c)}.chal.done{opacity:.75}
+.ch-h{display:flex;justify-content:space-between;align-items:baseline}.ch-h b{font-size:15px}
+.stars{color:var(--legend);letter-spacing:2px;font-size:14px}.stars em{font-style:normal;color:var(--line2)}
+.chal p{margin:0;font-size:13px;color:var(--muted)}
+.ch-f{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted)}.ch-f b{color:var(--fg)}
+.ch-f .ok{font-style:normal;font-weight:700;color:var(--c)}
+.chip.chal{color:var(--accent);border-color:var(--accent)}
 /* --- panel pulido --- */
 .body>*{flex-shrink:0}
 #panel{background:var(--panelbg);box-shadow:inset 0 1px 0 var(--hilite),var(--panelglow)}
@@ -583,6 +593,8 @@ const ACH=[
  {id:'c1',n:'Golpe certero',d:'Haz 1.000 golpes críticos',ok:()=>S.st.crit>=1000},
  {id:'e1',n:'Esencia pura',d:'Consigue 25 de esencia en total',ok:()=>S.essTotal>=25},
  {id:'ky1',n:'Guardiana de llaves',d:'Consigue 50 llaves rúnicas',ok:()=>(S.st.keys||0)>=50},
+ {id:'rt1',n:'Sin miedo',d:'Supera tu primer reto',ok:()=>Object.values(S.chalDone||{}).some(x=>x>0)},
+ {id:'rt2',n:'Todas las estrellas',d:'Consigue las 18 estrellas de reto',ok:()=>Object.values(S.chalDone||{}).reduce((a,b)=>a+b,0)>=18},
  {id:'ev1',n:'Noches especiales',d:'Vive 10 eventos',ok:()=>(S.st.events||0)>=10},
  {id:'as1',n:'Hija de las estrellas',d:'Asciende por primera vez',ok:()=>S.asc>=1},
  {id:'r1',n:'Druida',d:'Alcanza el rango Druida',ok:()=>rank()>=4},
@@ -652,13 +664,22 @@ const biome=()=>((S.asc||0)%BIOMES.length);
 const mlv=c=>Math.floor((Math.sqrt(1+0.8*(c||0))-1)/2);
 const mNeed=n=>5*n*(n+1);
 const mTotal=()=>{let t=0;for(const k in (S.mast||{}))t+=mlv(S.mast[k]);return t;};
+const CHAL=[
+ {id:'sinfuerza',n:'Manos atadas',r:'No puedes comprar Fuerza de cosecha',w:n=>'+15% de fuerza de toque',col:'#ff9ec7'},
+ {id:'pobre',n:'Tierra seca',r:'Los frutos dan la mitad de savia',w:n=>'+15% de savia',col:'#1e9466'},
+ {id:'ayuno',n:'Sin raíces',r:'Las habilidades no tienen efecto',w:n=>'+15% de experiencia',col:'#7552c4'},
+ {id:'sinviento',n:'Calma',r:'El viento no sopla: todo se cosecha a mano',w:n=>'+25% de fuerza del viento',col:'#2a7fbd'},
+ {id:'runico',n:'Solo runas',r:'Todos los frutos son rúnicos',w:n=>'+2% de probabilidad de llave',col:'#0e8fb3'},
+ {id:'duro',n:'Corteza dura',r:'Los frutos tienen el doble de vida',w:n=>'+3% de golpe crítico',col:'#b67f00'}];
+const CHAL_GOAL=[15,25,35];
+const chOn=id=>S.chal===id, chN=id=>(S.chalDone&&S.chalDone[id])||0;
 const VIS=[
  {k:'luci',n:'Luciérnaga dorada',w:70,col:'#ffd166'},
  {k:'mari',n:'Mariposa lunar',w:25,col:'#9fd8ff'},
  {k:'coli',n:'Colibrí estelar',w:5,col:'#ff9ec7'}];
 const RANKS=['Aprendiz','Jardinera','Guardiana','Herbolaria','Druida','Espíritu del bosque','Raíz del mundo'];
 
-let bornAt=0,lvlFx=null,portalFx=0,buffs=[],vis=null,visT=35+Math.random()*30,storyQ=[];
+let portalTxt='Portal cruzado',bornAt=0,lvlFx=null,portalFx=0,buffs=[],vis=null,visT=35+Math.random()*30,storyQ=[];
 const css=getComputedStyle(document.documentElement);
 const CC={};const C=k=>CC[k]||(CC[k]=getComputedStyle(document.documentElement).getPropertyValue(k).trim());
 const CYC=20*60*1000; // 11 min de día, atardecer, 7 de noche, amanecer
@@ -673,7 +694,7 @@ function applyMode(){NA=nightAmt();document.documentElement.dataset.mode=UIN()?'
 
 // ---------- estado ----------
 const KEY='savia-idle-v6';
-const fresh=()=>({mast:{},core:0,music:false,evNext:600,event:null,guides:{},daily:{last:'',streak:0},savia:0,all:0,L:1,xp:0,maxL:1,up:{},sk:{},sp:0,am:{},eq:{},herb:{},esencia:0,essTotal:0,portales:0,sa:{},portal:{ph:0,c:{},off:{},k:0},keys:0,runic:false,story:{},ach:{},st:{time:0,byR:[0,0,0,0],crit:0,vis:0},boss:{},polvo:0,stars:{},asc:0,sc:0,seeds:[0,0,0],plots:[],selSeed:0,sound:true,eco:false,unl:{up:1},buyN:1,sub:'he',psub:'po',ssub:'au',season:0,pk:0,seals:[0,0,0,0],cr:{},cos:{tree:'natural',sky:'noche',leaf:'oval'},mode:'ciclo',cyc1:1,frutos:0,taps:0,
+const fresh=()=>({chal:null,chalDone:{},mast:{},core:0,music:false,evNext:600,event:null,guides:{},daily:{last:'',streak:0},savia:0,all:0,L:1,xp:0,maxL:1,up:{},sk:{},sp:0,am:{},eq:{},herb:{},esencia:0,essTotal:0,portales:0,sa:{},portal:{ph:0,c:{},off:{},k:0},keys:0,runic:false,story:{},ach:{},st:{time:0,byR:[0,0,0,0],crit:0,vis:0},boss:{},polvo:0,stars:{},asc:0,sc:0,seeds:[0,0,0],plots:[],selSeed:0,sound:true,eco:false,unl:{up:1},buyN:1,sub:'he',psub:'po',ssub:'au',season:0,pk:0,seals:[0,0,0,0],cr:{},cos:{tree:'natural',sky:'noche',leaf:'oval'},mode:'ciclo',cyc1:1,frutos:0,taps:0,
   mis:[],mdone:0,fruit:null,last:Date.now()});
 let S=fresh();
 let restored=false;
@@ -685,7 +706,7 @@ function migrate(){
   if(S.semillas){S.esencia+=S.semillas;delete S.semillas;}delete S.replantes;
   if(!S.portal||S.portal.ph==null)S.portal={ph:0,c:{},off:{},k:0};if(S.portal.k==null)S.portal.k=0;
   if(S.pk===0&&S.portales&&!S.seals.some(x=>x))S.pk=S.portales;
-  if(!S.mast)S.mast={};
+  if(!S.mast)S.mast={};if(!S.chalDone)S.chalDone={};
   if(!Array.isArray(S.seeds))S.seeds=[0,0,0];if(!Array.isArray(S.plots))S.plots=[];
   if(!S.unl||!S.unl.up)S.unl={up:1};
   S.st=Object.assign({time:0,byR:[0,0,0,0],crit:0,vis:0,first:Date.now(),sessions:0,days:0,lastDay:'',buys:0,skills:0,amulets:0,maxHit:0,bestStreak:0,fastPortal:0,offline:0,
@@ -709,7 +730,7 @@ function fmt(n){
 
 // ---------- reglas ----------
 const starOn=id=>!!(S.stars&&S.stars[id]);
-const lv=id=>S.up[id]||0, sk=id=>!!S.sk[id], sa=id=>S.sa[id]||0, cr=id=>S.cr[id]||0, seasonOn=()=>S.portales>=3, inS=i=>seasonOn()&&S.season===i;
+const lv=id=>S.up[id]||0, sk=id=>!!S.sk[id]&&S.chal!=='ayuno', sa=id=>S.sa[id]||0, cr=id=>S.cr[id]||0, seasonOn=()=>S.portales>=3, inS=i=>seasonOn()&&S.season===i;
 function amVal(t){const r=S.eq[t.id];if(r==null)return 0;const l=S.am[t.id+'_'+r]||1;return t.base[r]*(1+0.5*(l-1))*(sk('f3')?1.5:1);}
 function herbStats(){let n=0,rows=0;TIERS.forEach((_,i)=>{let c=0;for(let r=0;r<4;r++)if(S.herb[i+'_'+r]){n++;c++;}if(c===4)rows++;});
   const m=sk('f5')?2:1;return {n,rows,sv:1+0.02*n*m,xp:1+0.02*n*m,tap:1+0.1*rows*m};}
@@ -719,13 +740,13 @@ function fxCalc(){
   const et=1+0.1*sa('eterna'), H=herbStats(), AB=1+0.02*Object.keys(S.ach).length;let bt=1,bs=1;for(const b of buffs){if(b.k==='tap')bt*=b.m;if(b.k==='sv')bs*=b.m;}
   const luck=(NA>0.5?3:0)+lv('suerte')+(sk('f1')?2:0)+(sk('f6')?5:0)+(sk('f7')?10:0)+(starOn('z1')?10:0)+amVal(AM[2])+cr('seta');
   const ST=(starOn('s4')?3:1)*(1+0.25*S.core);
-  const tap=(biome()===2?1.25:1)*(starOn('s1')?2:1)*ST*tapBase(lv('fuerza'))*(sk('c1')?1.5:1)*(sk('c4')?3:1)*(sk('c7')?4:1)*(sk('c9')?10:1)*(sk('r9')?3:1)*(1+amVal(AM[0])/100)*et*H.tap*AB*bt*(1+0.25*S.seals[3]);
-  const sv=(1+0.01*mTotal())*(NA<0.5?1.1:1)*(starOn('s2')?2:1)*ST*(1+0.15*lv('abund'))*(sk('c3')?2:1)*(sk('c5')?3:1)*(sk('r4')?2:1)*(sk('r7')?5:1)*(sk('r9')?3:1)*(1+amVal(AM[1])/100)*et*H.sv*AB*bs*(evOn('cosecha')?3:1)*(1+0.15*cr('ciervo'))*(1+0.25*S.seals[1])*(inS(1)?2:1);
-  const xpm=(biome()===3?1.3:1)*(starOn('s3')?2:1)*ST*(1+amVal(AM[3])/100)*(1+0.1*lv('raices'))*(sk('r8')?5:1)*(sk('r9')?3:1)*et*H.xp*(sk('r1')?1.25:1)*(sk('r3')?1.5:1)*(sk('r4')?2:1)*(sk('r6')?3:1)*(1+0.1*cr('buho'))*(1+0.25*S.seals[0])*(inS(0)?1.5:1);
-  const autoRate=VIENTO[Math.max(sa('viento'),starOn('m1')?3:0)]+cr('libelula');
-  const autoPow=tap*(sa('vendaval')?1:0.5);
+  const tap=(1+0.15*chN('sinfuerza'))*(biome()===2?1.25:1)*(starOn('s1')?2:1)*ST*tapBase(lv('fuerza'))*(sk('c1')?1.5:1)*(sk('c4')?3:1)*(sk('c7')?4:1)*(sk('c9')?10:1)*(sk('r9')?3:1)*(1+amVal(AM[0])/100)*et*H.tap*AB*bt*(1+0.25*S.seals[3]);
+  const sv=(chOn('pobre')?0.5:1)*(1+0.15*chN('pobre'))*(1+0.01*mTotal())*(NA<0.5?1.1:1)*(starOn('s2')?2:1)*ST*(1+0.15*lv('abund'))*(sk('c3')?2:1)*(sk('c5')?3:1)*(sk('r4')?2:1)*(sk('r7')?5:1)*(sk('r9')?3:1)*(1+amVal(AM[1])/100)*et*H.sv*AB*bs*(evOn('cosecha')?3:1)*(1+0.15*cr('ciervo'))*(1+0.25*S.seals[1])*(inS(1)?2:1);
+  const xpm=(1+0.15*chN('ayuno'))*(biome()===3?1.3:1)*(starOn('s3')?2:1)*ST*(1+amVal(AM[3])/100)*(1+0.1*lv('raices'))*(sk('r8')?5:1)*(sk('r9')?3:1)*et*H.xp*(sk('r1')?1.25:1)*(sk('r3')?1.5:1)*(sk('r4')?2:1)*(sk('r6')?3:1)*(1+0.1*cr('buho'))*(1+0.25*S.seals[0])*(inS(0)?1.5:1);
+  const autoRate=chOn('sinviento')?0:VIENTO[Math.max(sa('viento'),starOn('m1')?3:0)]+cr('libelula');
+  const autoPow=(1+0.25*chN('sinviento'))*tap*(sa('vendaval')?1:0.5);
   const amChance=(evOn('niebla')?3:1)*(0.06+0.015*lv('botin')+(sk('f2')?0.05:0))*(sk('f8')?2:1)*(1+0.25*S.seals[2])*(inS(2)?1.5:1);
-  return {luck,tap,sv,xpm,autoRate,autoPow,crit:(sk('c6')?0.25:sk('c2')?0.1:0)+0.02*lv('filo'),critM:(sk('c6')?10:5)*(sk('c8')?2:1),amChance,racimo:0.03*lv('racimo')+(sk('r5')?0.1:0)+0.05*cr('colmena')+(inS(2)?0.2:0)};
+  return {luck,tap,sv,xpm,autoRate,autoPow,crit:0.03*chN('duro')+(sk('c6')?0.25:sk('c2')?0.1:0)+0.02*lv('filo'),critM:(sk('c6')?10:5)*(sk('c8')?2:1),amChance,racimo:0.03*lv('racimo')+(sk('r5')?0.1:0)+0.05*cr('colmena')+(inS(2)?0.2:0)};
 }
 const xpNeed=L=>Math.ceil(100*Math.pow(1.2,L-1))+20*L;
 const fruitXp=(L,r)=>FR_XP[r]*Math.pow(1.05,L-1);
@@ -756,18 +777,18 @@ function haveOf(r){const v=r.abs==='L'?S.L:r.abs==='herb'?herbStats().n:r.cnt?(S
 function portalReq(){const P=phases();return P[Math.min(S.portal.ph,P.length-1)].reqs.map(r=>Object.assign(r,{have:haveOf(r)}));}
 const phaseDone=()=>portalReq().every(r=>r.have>=r.need);
 const KEYS_N=8;
-const keyChance=(r,F)=>{F=F||fx();return Math.min(0.5,(0.08+0.004*F.luck)*[1,1.3,1.7,2.5][r||0]*(evOn('niebla')?1.5:1));};
+const keyChance=(r,F)=>{F=F||fx();return Math.min(0.5,(0.08+0.004*F.luck+0.02*chN('runico'))*[1,1.3,1.7,2.5][r||0]*(evOn('niebla')?1.5:1));};
 const runeOn=()=>!!S.unl.po;
 const portalReady=()=>S.portal.ph===2&&phaseDone()&&S.portal.k>=KEYS_N;
 const ascGain=()=>3+Math.floor(S.maxL/25)+S.asc;
 const essGain=()=>(6+3*S.pk+Math.max(0,Math.floor((S.L-(20+3*S.pk))/2)))*(inS(3)?2:1)*(starOn('z2')?2:1);
-const hpMul=()=>(inS(1)?1.3:1)*(inS(3)?2:1)*(1-0.05*cr('erizo'))*(1-0.03*lv('piel'));
+const hpMul=()=>(chOn('duro')?2:1)*(inS(1)?1.3:1)*(inS(3)?2:1)*(1-0.05*cr('erizo'))*(1-0.03*lv('piel'));
 
 function roll(w){const t=w.reduce((a,b)=>a+b,0);let x=Math.random()*t;for(let i=0;i<w.length;i++){x-=w[i];if(x<0)return i;}return w.length-1;}
 function rarW(F){return FR_W.map((v,i)=>v*Math.pow(1+0.06*F.luck,i)*(i===3&&sk('f4')?3:1)*(i>0&&inS(0)?2:1)*(i===3&&inS(3)?4:1)*(i===3&&sk('f9')?5:1)*(evOn('luna')?(i===3?5:i>0?2:1):1));}
 function newFruit(){bornAt=performance.now();
   const F=fx();const w=rarW(F);
-  const ru=S.runic&&runeOn();const r=roll(w);const max=40*Math.pow(1.19,S.L-1)*FR_HP[r]*hpMul()*Math.max(1,2-0.2*(S.L-1))*(ru?2.5:1);
+  const ru=(S.runic&&runeOn())||chOn('runico');const r=roll(w);const max=40*Math.pow(1.19,S.L-1)*FR_HP[r]*hpMul()*Math.max(1,2-0.2*(S.L-1))*(ru?2.5:1);
   S.fruit={r,hp:max,max,t:tierIdx(S.L),ru:ru?1:0};
 }
 if(!S.fruit||S.fruit.boss)newFruit();
@@ -788,11 +809,13 @@ function startBoss(){const F=fx();const max=40*Math.pow(1.19,S.L-1)*hpMul()*12;S
   bossEnd=performance.now()+bossDur()*1000;sfx('portal');toast('¡El <b style="color:#ff6b8a">guardián</b> despierta! Rómpelo antes de que acabe el tiempo');}
 function defeatBoss(){const F=fx();const g=fruitSv(S.L,F)*60;gain(g);S.boss[S.L]=1;S.sp++;burst(3,S.fruit.t);burst(2,S.fruit.t);sfx('lvl');
   toast('<b style="color:#ff6b8a">Guardián derrotado</b> · +'+fmt(g)+' savia · +1 punto de habilidad');dropAmulet(2,F,false,1);S.st.boss=(S.st.boss||0)+1;newFruit();addXp(0);}
+function chalCheck(){if(!S.chal)return;const id=S.chal,n=chN(id);if(n>=3){S.chal=null;return;}if(S.L>=CHAL_GOAL[n]){S.chalDone[id]=n+1;S.chal=null;bumpFx();sfx('ach');const C2=CHAL.find(c=>c.id===id);
+  storyQ.push('c:'+id);toast('Reto superado: <b style="color:var(--accent)">'+C2.n+'</b> · '+C2.w(n+1)+' para siempre');sig='';}}
 function addXp(x){S.xp+=x;let ups=0,pts=0;
   if(blocked())S.xp=Math.min(S.xp,xpNeed(S.L));
   while(S.xp>=xpNeed(S.L)&&!blocked()){S.xp-=xpNeed(S.L);S.L++;if(S.L%2===0){S.sp++;pts++;}ups++;
     const t=TIERS.find(t=>t.l===S.L);if(t)toast('Nuevo fruto: <b style="color:var(--accent2)">'+t.n+'</b>');}
-  if(ups){bumpFx();S.maxL=Math.max(S.maxL,S.L);sfx('lvl');lvlFx={L:S.L,t:performance.now()};toast('El árbol sube a <b>nivel '+S.L+'</b>'+(pts?' · +'+pts+' punto'+(pts>1?'s':'')+' de habilidad':''));}
+  if(ups){chalCheck();bumpFx();S.maxL=Math.max(S.maxL,S.L);sfx('lvl');lvlFx={L:S.L,t:performance.now()};toast('El árbol sube a <b>nivel '+S.L+'</b>'+(pts?' · +'+pts+' punto'+(pts>1?'s':'')+' de habilidad':''));}
 }
 function gain(n){S.savia+=n;S.all+=n;S.st.run.savia+=n;ev('savia',n);}
 
@@ -883,7 +906,19 @@ function dailyCheck(){const t=today();if(S.daily.last===t)return;if(!S.daily.las
   const n=S.daily.streak,d=((n-1)%7)+1,F=fx();const g=fruitSv(S.L,F)*20*d;gain(g);let extra='';
   if(d===3){S.seeds[1]++;extra=' y una semilla de luna';}else if(d===5){dropAmulet(1,F,true,1);extra=' y un amuleto';}else if(d===7){S.seeds[2]++;S.sp++;extra=', una semilla estelar y un punto de habilidad';}
   storyQ.unshift('d:'+JSON.stringify({n,g:fmt(g),x:extra}));}
-function storyText(id){if(id.startsWith('b:')){const B=BIOMES[+id.slice(2)];return {k:'Nuevo escenario',t:B.n,p:B.t+' <b>'+B.b+'.</b>'};}
+function pending(){const l=[];fixPlots();
+  const ready=S.plots.filter(p=>p.s>=0&&plotLeft(p)===0).length;if(ready)l.push(ready+(ready===1?' planta lista':' plantas listas')+' en el huerto');
+  const free=S.plots.filter(p=>p.s<0).length,seeds=S.seeds.reduce((a,b)=>a+b,0);if(S.unl.hu&&free&&seeds)l.push(Math.min(free,seeds)+(Math.min(free,seeds)===1?' parcela vacía':' parcelas vacías')+' y semillas para plantar');
+  if(runeOn()&&S.keys>0&&S.portal.k<KEYS_N)l.push(S.keys+(S.keys===1?' llave rúnica':' llaves rúnicas')+' sin colocar en el portal');
+  const mis=S.mis.filter(m=>misProg(m)>=m.g).length;if(S.unl.mi&&mis)l.push(mis+(mis===1?' misión':' misiones')+' por recoger');
+  if(S.unl.sk&&SKALL.some(n=>skAvail(n)&&S.sp>=n.p))l.push(S.sp+' puntos de habilidad para gastar');
+  if(S.unl.po&&phaseDone()&&S.portal.ph<2)l.push('una fase del portal lista para completar');
+  if(S.event){const E=EVENTS.find(e=>e.k===S.event.k);l.push('el evento '+E.n.toLowerCase()+' está en marcha');}
+  return l;}
+function returnSummary(away){if(away<90)return;const l=pending();if(l.length)storyQ.push('r:'+JSON.stringify(l));}
+function storyText(id){if(id.startsWith('r:')){const l=JSON.parse(id.slice(2));return {k:'Al volver',t:'Te esperan en el bosque',p:'<span class="rlist">'+l.map(x=>'· '+x[0].toUpperCase()+x.slice(1)).join('<br>')+'</span>'};}
+  if(id.startsWith('c:')){const C2=CHAL.find(c=>c.id===id.slice(2)),n=chN(C2.id);return {k:'Reto superado',t:C2.n+' '+'★'.repeat(n)+'☆'.repeat(3-n),p:'Has llegado al nivel '+CHAL_GOAL[n-1]+' con la regla «'+C2.r.toLowerCase()+'». Ganas <b>'+C2.w(n)+'</b> para siempre'+(n<3?'. La próxima vez el reto pedirá el nivel '+CHAL_GOAL[n]+'.':'. Has completado este reto.')};}
+  if(id.startsWith('b:')){const B=BIOMES[+id.slice(2)];return {k:'Nuevo escenario',t:B.n,p:B.t+' <b>'+B.b+'.</b>'};}
   if(id.startsWith('d:')){const o=JSON.parse(id.slice(2)),d=((o.n-1)%7)+1;
   const next=d<3?'el día 3 trae una semilla de luna.':d<5?'el día 5 trae un amuleto.':d<7?'el día 7 trae una semilla estelar y un punto de habilidad.':'la racha sigue y los regalos crecen.';
   return {k:'Regalo del día · racha de '+o.n+(o.n===1?' día':' días'),t:'¡Hola de nuevo!',p:'El bosque te ha guardado <b style="color:var(--sap)">+'+o.g+' de savia</b>'+o.x+'. Vuelve mañana para seguir la racha: '+next};}
@@ -968,7 +1003,7 @@ function offline(since){bumpFx();const F=fx();const RO=ROCIO[sa('rocio')];{const
   for(let i=0;i<max;i++)openFruit(true,true);
   if(n>max)gain((S.savia-before)/max*(n-max));
   setTimeout(()=>toast('Mientras no estabas el viento cosechó <b>'+fmt(n)+'</b> frutos · +'+fmt(S.savia-before)+' savia'),400);}
-offline(S.last);
+{const away=(Date.now()-S.last)/1000;offline(S.last);setTimeout(()=>returnSummary(away),900);}
 if(restored)setTimeout(()=>toast('Se ha recuperado tu partida desde la copia de seguridad'),700);
 
 // ---------- dibujo de frutos ----------
@@ -1085,7 +1120,7 @@ function paintNight(c){{const g0=c.createRadialGradient(W/2,H*1.05,0,W/2,H*1.05,
   g=c.createLinearGradient(0,H*0.68,0,H*0.82);g.addColorStop(0,'rgba(140,110,220,0)');g.addColorStop(0.5,'rgba(140,110,220,.10)');g.addColorStop(1,'rgba(140,110,220,0)');c.fillStyle=g;c.fillRect(0,H*0.68,W,H*0.14);
   const bx=W/2,by=H*0.9;g=c.createRadialGradient(bx,by+H*0.06,0,bx,by+H*0.06,W*0.5);g.addColorStop(0,'rgba(140,95,230,.45)');g.addColorStop(1,'rgba(140,95,230,0)');
   c.fillStyle=g;c.beginPath();c.ellipse(bx,by+H*0.06,W*0.5,H*0.12,0,0,7);c.fill();}
-let tips=[],BR={s:85,l:56,dl:22,glow:true};
+let TW=1,tips=[],BR={s:85,l:56,dl:22,glow:true};
 function drawBranches(t,root,bx,by,L0,dir,hue0,hue1,alpha,collect){
   const segs=[];
   (function walk(n,x,y,ang,len,d){const sway=Math.sin(t*0.9+d*0.7)*0.012*d*dir;
@@ -1093,7 +1128,7 @@ function drawBranches(t,root,bx,by,L0,dir,hue0,hue1,alpha,collect){
     if(!n.k.length){if(collect)tips.push([x2,y2,A,n.leaf]);return;}for(const c of n.k)walk(c,x2,y2,A,len*c.l,d+1);
   })(root.node,bx,by,0,L0,0);
   const max=root.max;const glow=!S.eco&&BR.glow;
-  for(const pass of (glow?[0,1]:[1]))for(let d=0;d<=max;d++){const f=d/Math.max(1,max);const w=Math.max(0.9,(max-d+1)*(dir>0?1.7:0.9));
+  for(const pass of (glow?[0,1]:[1]))for(let d=0;d<=max;d++){const f=d/Math.max(1,max);const w=Math.max(0.9,(max-d+1)*(dir>0?1.7:0.9))*(dir>0?TW:1);
     ctx.strokeStyle='hsla('+(hue0+(hue1-hue0)*f)+','+BR.s+'%,'+(BR.l+f*BR.dl)+'%,'+(pass?alpha:alpha*0.13)+')';ctx.lineWidth=pass?w:w*3.6;ctx.beginPath();
     for(const s2 of segs)if(s2[4]===d){ctx.moveTo(s2[0],s2[1]);ctx.lineTo(s2[2],s2[3]);}ctx.stroke();}
 }
@@ -1130,14 +1165,15 @@ function frame(now){
   ctx.strokeStyle=DAY()?'rgba(60,110,50,.45)':'rgba(143,242,200,.25)';ctx.lineWidth=1;ctx.beginPath();for(let i=0;i<30;i++){const x=W*0.12+i*W*0.026,hh=6+((i*37)%10);
     ctx.moveTo(x,by+3);ctx.quadraticCurveTo(x+Math.sin(t+i)*2,by-hh*0.5,x+Math.sin(t*1.3+i)*3,by-hh);}ctx.stroke();
   // árbol
-  const L0=Math.min(H*0.2,W*0.3)*(0.8+0.2*Math.min(1,tree.max/8));
+  TW=Math.min(2.6,1+0.07*Math.min(S.portales,12)+0.3*Math.min(S.asc||0,3));
+  const L0=Math.min(H*0.2,W*0.3)*(0.8+0.2*Math.min(1,tree.max/8))*Math.min(1.18,1+0.012*Math.min(S.portales,10)+0.03*Math.min(S.asc||0,2));
   g=ctx.createRadialGradient(bx,by-L0*2.6,0,bx,by-L0*2.6,L0*2.8);g.addColorStop(0,DAY()?'rgba(255,252,225,.35)':'rgba(200,140,255,.16)');g.addColorStop(1,'rgba(200,140,255,0)');
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(bx,by-L0*2.6,L0*2.8,0,7);ctx.fill();
   const TC=COS.tree.find(x=>x.id===S.cos.tree)||COS.tree[0];const th=TC.h||[(t*40)%360,(t*40)%360+140];
   const lp=(a,b)=>a+(b-a)*NA;BR=TC.nat?{s:lp(38,30),l:lp(24,34),dl:16,glow:NA>0.5}:{s:lp(70,85),l:lp(42,56),dl:lp(16,22),glow:NA>0.5};
   if(TC.nat)drawBranches(t,roots,bx,by,H*0.04,-1,28,30,0.45,false);else drawBranches(t,roots,bx,by,H*0.04,-1,250,232,0.35,false);
   tips=[];drawBranches(t,tree,bx,by,L0,1,th[0],th[1],0.95,true);
-  const leafN=Math.min(tips.length,Math.ceil(tips.length*Math.min(1,0.35+S.L/40)));
+  const leafN=Math.min(tips.length,Math.ceil(tips.length*Math.min(1,0.35+S.L/40+0.05*S.portales)));
   {const NB=5,paths=[];for(let k2=0;k2<NB;k2++)paths.push(new Path2D());const fl=new Path2D();
    for(let i=0;i<leafN;i++){const p=tips[i];const s3=3.5+p[3]*3;const a=p[2]+Math.sin(t*1.4+i)*0.2;const lx=p[0]+Math.sin(a)*s3*0.6,ly=p[1]-Math.cos(a)*s3*0.6;const P=paths[Math.min(NB-1,Math.floor(p[3]*NB))];
      if(S.cos.leaf==='corazon'){const z=s3*0.55;P.moveTo(lx,ly+z);P.bezierCurveTo(lx-z*1.6,ly-z*0.2,lx-z*0.6,ly-z*1.4,lx,ly-z*0.5);P.bezierCurveTo(lx+z*0.6,ly-z*1.4,lx+z*1.6,ly-z*0.2,lx,ly+z);P.closePath();}
@@ -1217,7 +1253,7 @@ function frame(now){
       ctx.beginPath();ctx.ellipse(cx,cy,rr,rr*0.62,a*2.5+i*0.5,0,7);ctx.stroke();}
     if(a<0.7){ctx.fillStyle='rgba(235,225,255,'+(0.7*(1-a/0.7))+')';ctx.fillRect(0,0,W,H);}
     ctx.globalAlpha=Math.min(1,a*3,(2.4-a)/0.8);ctx.textAlign='center';ctx.font='800 '+Math.round(Math.min(W*0.08,32))+'px Syne, sans-serif';
-    ctx.fillStyle=DAY()?'#24476a':'#f1ecff';ctx.shadowColor=DAY()?'rgba(255,255,255,.9)':'#9fd8ff';ctx.shadowBlur=24;ctx.fillText('Portal cruzado',cx,H*0.3);ctx.restore();}}
+    ctx.fillStyle=DAY()?'#24476a':'#f1ecff';ctx.shadowColor=DAY()?'rgba(255,255,255,.9)':'#9fd8ff';ctx.shadowBlur=24;ctx.fillText(portalTxt,cx,H*0.3);ctx.restore();}}
   requestAnimationFrame(frame);
 }
 
@@ -1261,7 +1297,7 @@ function tick(dt){const F=fx();
   if(vis){vis.t+=dt;if(cr('zorro')&&vis.t>2)catchVis();else if(vis.t>8)vis=null;}else{visT-=dt;if(visT<=0){visT=evOn('estrellas')?5+Math.random()*4:(60+Math.random()*60)/(1+0.1*lv('nectar'))*(NA>0.5?0.6:1)*(biome()===1?0.5:1);const k=VIS[roll(VIS.map(v=>v.w))].k;vis={k,t:0,dir:Math.random()<0.5?1:-1,y:H*(0.25+Math.random()*0.3)};}}
   progT+=dt;if(progT>1){progT=0;checkProgress(false);showStory();}
   helperT+=dt;if(helperT>1.5){helperT=0;
-    if(sa('jardinero')){const u=UPS.filter(u=>lv(u.id)<u.max).sort((a,b)=>upCost(a)-upCost(b))[0];if(u&&S.savia>=upCost(u)){S.savia-=upCost(u);S.up[u.id]=lv(u.id)+1;ev('buy',1);sig='';}}
+    if(sa('jardinero')){const u=UPS.filter(u=>lv(u.id)<u.max&&!(u.id==='fuerza'&&chOn('sinfuerza'))).sort((a,b)=>upCost(a)-upCost(b))[0];if(u&&S.savia>=upCost(u)){S.savia-=upCost(u);S.up[u.id]=lv(u.id)+1;ev('buy',1);sig='';}}
     if(sa('mensajero'))S.mis.forEach((m,i)=>{if(misProg(m)>=m.g){claim(i);sig='';}});
     if(sa('guardian')){let best=null,bc=Infinity;AM.forEach(t=>{const r=S.eq[t.id];if(r==null)return;const c=amUpCost(r,S.am[t.id+'_'+r]);if(c<bc){bc=c;best=t;}});
       if(best&&S.savia>=bc*3){S.savia-=bc;S.am[best.id+'_'+S.eq[best.id]]++;ev('amup',1);sig='';}}}
@@ -1292,9 +1328,9 @@ const body=document.getElementById('body'),tabsEl=document.getElementById('tabs'
 function fmtT(sec){sec=Math.ceil(sec);if(sec>=3600){const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60);return h+' h'+(m?' '+m+' min':'');}if(sec>=60){const m=Math.floor(sec/60),r=sec%60;return m+' min'+(r&&m<10?' '+r+' s':'');}return sec+' s';}
 function sproutSvg(p){const D=SEEDS[p.s].dur*growMul()*1000,f=Math.min(1,1-plotLeft(p)/D),h=8+26*f;
   return '<svg class="spr" viewBox="0 0 60 50"><path d="M30 46V'+(46-h)+'" stroke="var(--c)" stroke-width="2.4" fill="none"/>'+(f>0.3?'<ellipse cx="'+(30-6*f)+'" cy="'+(46-h*0.6)+'" rx="'+(7*f)+'" ry="'+(3*f+1)+'" fill="var(--c)" opacity=".85" transform="rotate(-25 '+(30-6*f)+' '+(46-h*0.6)+')"/><ellipse cx="'+(30+6*f)+'" cy="'+(46-h*0.75)+'" rx="'+(7*f)+'" ry="'+(3*f+1)+'" fill="var(--c)" opacity=".85" transform="rotate(25 '+(30+6*f)+' '+(46-h*0.75)+')"/>':'')+(f>=1?'<circle cx="30" cy="'+(46-h-4)+'" r="6" fill="var(--c)"/>':'')+'</svg>';}
-function PSUBS(){return seasonOn()?[['po','Portal'],['es','Estaciones'],['cs','Constelaciones']]:[['po','Portal'],['es','Estaciones']];}
+function PSUBS(){const l=[['po','Portal']];if(S.portales>=1)l.push(['re','Retos']);l.push(['es','Estaciones']);if(seasonOn())l.push(['cs','Constelaciones']);return l;}
 // Lo que se conserva en cualquier reinicio
-const KEEP=['mast','mode','cyc1','keys','runic','core','lastExport','lastRemind','music','evNext','event','guides','daily','all','herb','frutos','taps','maxL','mis','mdone','cos','story','ach','st','seeds','plots','selSeed','sound','eco','unl','buyN','sub','psub','ssub','polvo','stars','asc','portales','essTotal','last'];
+const KEEP=['chalDone','mast','mode','cyc1','keys','runic','core','lastExport','lastRemind','music','evNext','event','guides','daily','all','herb','frutos','taps','maxL','mis','mdone','cos','story','ach','st','seeds','plots','selSeed','sound','eco','unl','buyN','sub','psub','ssub','polvo','stars','asc','portales','essTotal','last'];
 function rebirth(extra){const k={};for(const key of KEEP)k[key]=S[key];S=Object.assign(fresh(),k,extra);S.st.run={start:Date.now(),time:0,taps:0,fruits:0,savia:0,buys:0};
   const st=1+3*sa('brote');S.L=st;S.maxL=Math.max(S.maxL,st);S.sp=Math.floor(st/2);S.mis=S.mis.map(m=>m.k==='level'?Object.assign(m,{g:S.L+2,p:0}):m);
   buffs=[];vis=null;treeKey='';newFruit();portalFx=performance.now();sfx('portal');bumpFx();sig='';}
@@ -1312,7 +1348,7 @@ const skAvail=n=>!sk(n.id)&&(n.idx===0||sk(n.branch.nodes[n.idx-1].id));
 body.addEventListener('click',e=>{bumpFx();setTimeout(bumpFx,0);
   const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
   if(a==='buyn'){S.buyN=b.dataset.n==='max'?'max':+b.dataset.n;sig='';updateUI();}
-  else if(a==='up'){const u=UPS.find(x=>x.id===b.dataset.id);if(lv(u.id)>=u.max)return;const k=upK(u),c=upCostK(u,k);
+  else if(a==='up'){const u=UPS.find(x=>x.id===b.dataset.id);if(lv(u.id)>=u.max)return;if(u.id==='fuerza'&&chOn('sinfuerza')){toast('El reto <b>Manos atadas</b> no te deja comprar fuerza');return;}const k=upK(u),c=upCostK(u,k);
     if(k>0&&S.savia>=c){S.savia-=c;S.up[u.id]=lv(u.id)+k;S.st.buys+=k;S.st.run.buys+=k;ev('buy',k);popId=u.id;sig='';updateUI();}}
   else if(a==='eq'){S.eq[b.dataset.t]=+b.dataset.r;sig='';updateUI();}
   else if(a==='amup'){const t=b.dataset.t,r=S.eq[t];const key=t+'_'+r;const c=amUpCost(r,S.am[key]);
@@ -1323,6 +1359,10 @@ body.addEventListener('click',e=>{bumpFx();setTimeout(bumpFx,0);
   else if(a==='seed'){S.selSeed=+b.dataset.k;sig='';updateUI();}
   else if(a==='plant'){const i=+b.dataset.i,k=S.selSeed;if(S.plots[i].s>=0||S.seeds[k]<1)return;S.seeds[k]--;S.plots[i]={s:k,at:Date.now()};sfx('tap');sig='';updateUI();}
   else if(a==='harv'){harvest(+b.dataset.i);sig='';updateUI();}
+  else if(a==='chs'){const id=b.dataset.id;if(chN(id)>=3||S.chal)return;confirm2(()=>{portalTxt='Empieza el reto';
+      rebirth({am:S.am,eq:S.eq,esencia:S.esencia,sa:S.sa,cr:S.cr,pk:S.pk,season:S.season,seals:S.seals,sc:S.sc,sk:starOn('memoria')?S.sk:{},chal:id,psub:'re',portal:S.portal});
+      const C2=CHAL.find(c=>c.id===id);toast('Empieza el reto <b style="color:var(--accent)">'+C2.n+'</b> · llega al nivel '+CHAL_GOAL[chN(id)]);});}
+  else if(a==='cha'){if(!S.chal)return;confirm2(()=>{const C2=CHAL.find(c=>c.id===S.chal);S.chal=null;bumpFx();toast('Has abandonado el reto '+C2.n+'. Sigues jugando sin la regla.');});}
   else if(a==='psub'){S.psub=b.dataset.s;sig='';updateUI();}
   else if(a==='ssub'){S.ssub=b.dataset.s;sig='';updateUI();}
   else if(a==='cos'){const [k,id]=b.dataset.c.split(':');const it=COS[k].find(x=>x.id===id);if(it&&it.u()){S.cos[k]=id;sig='';updateUI();}}
@@ -1332,10 +1372,10 @@ body.addEventListener('click',e=>{bumpFx();setTimeout(bumpFx,0);
   else if(a==='core'){if(!allStars()||S.polvo<coreCost())return;S.polvo-=coreCost();S.core++;bumpFx();sfx('ach');toast('El <b style="color:var(--star)">Corazón del cielo</b> late más fuerte · nivel '+S.core);sig='';updateUI();}
   else if(a==='buystar'){const st=STARS.find(x=>x.id===selStar);if(!st||starOn(st.id)||(st.req&&!starOn(st.req))||S.polvo<st.p)return;S.polvo-=st.p;S.stars[st.id]=1;sfx('ach');
     toast('Se enciende <b style="color:var(--star)">'+st.n+'</b>');sig='';updateUI();}
-  else if(a==='ascend'){if(S.sc<4)return;confirm2(()=>{const g=ascGain(),keepAm=starOn('cofre');
+  else if(a==='ascend'){if(S.sc<4)return;confirm2(()=>{portalTxt='Ascensión';const g=ascGain(),keepAm=starOn('cofre');
       rebirth({psub:'cs',polvo:S.polvo+g,asc:S.asc+1,am:keepAm?S.am:{},eq:keepAm?S.eq:{}});
       toast('El bosque asciende al cielo · <b style="color:var(--star)">+'+g+' polvo estelar</b>');storyQ.push('b:'+biome());bgKey='';bgKeyN='';});}
-  else if(a==='season'){if(S.pk<3)return;confirm2(()=>{const old=S.season;
+  else if(a==='season'){if(S.pk<3)return;confirm2(()=>{portalTxt='Nueva estación';const old=S.season;
       rebirth({am:S.am,eq:S.eq,esencia:S.esencia,sa:S.sa,cr:S.cr,pk:0,season:(old+1)%4,seals:S.seals.map((x,i)=>i===old?x+1:x),sc:S.sc+1,psub:'es'});
       toast('Sello de <b style="color:'+SEASONS[old].col+'">'+SEASONS[old].n+'</b> · '+SEASONS[old].seal);
       toast('Llega '+(S.season===0?'la ':'el ')+'<b style="color:'+SEASONS[S.season].col+'">'+SEASONS[S.season].n.toLowerCase()+'</b>');});}
@@ -1366,7 +1406,7 @@ body.addEventListener('click',e=>{bumpFx();setTimeout(bumpFx,0);
     toast('Fase <b style="color:'+P[S.portal.ph].col+'">'+P[S.portal.ph].n+'</b> completada');S.portal={ph:S.portal.ph+1,c:{},off:{},k:S.portal.k};
     for(let i=0;i<30;i++){const an=Math.random()*7,sp=60+Math.random()*160;parts.push({x:W/2,y:H*0.45,vx:Math.cos(an)*sp,vy:Math.sin(an)*sp-50,life:1,col:i%2?'#9fd8ff':P[S.portal.ph-1].col,sz:2});}
     sig='';save();updateUI();}
-  else if(a==='cross'){if(!portalReady())return;confirm2(()=>{const g=essGain(),first=S.portales===0;ev('portal',1);{const rt=S.st.run.time;if(!S.st.fastPortal||rt<S.st.fastPortal)S.st.fastPortal=rt;}
+  else if(a==='cross'){if(!portalReady())return;if(S.chal){toast('Termina o abandona el reto antes de cruzar el portal');return;}confirm2(()=>{portalTxt='Portal cruzado';const g=essGain(),first=S.portales===0;ev('portal',1);{const rt=S.st.run.time;if(!S.st.fastPortal||rt<S.st.fastPortal)S.st.fastPortal=rt;}
       rebirth({am:S.am,eq:S.eq,esencia:S.esencia+g,essTotal:S.essTotal+g,portales:S.portales+1,sa:S.sa,cr:S.cr,pk:S.pk+1,season:S.season,seals:S.seals,sc:S.sc,sk:starOn('memoria')?S.sk:{}});
       if(first){tab='sa';S.unl.sa=1;}renderTabs();
       toast('Has cruzado el portal · <b style="color:var(--ess)">+'+g+' esencia</b>');if(first)toast('Se ha abierto el <b style="color:var(--ess)">Santuario</b>');});}
@@ -1401,6 +1441,7 @@ function updateUI(){
   if(S.sp)ch+='<span class="chip sp">'+S.sp+' pt habilidad</span>';
   if(F.autoRate)ch+='<span class="chip auto">viento '+F.autoRate+'/s</span>';
   if(S.event){const E=EVENTS.find(e=>e.k===S.event.k);ch='<span class="chip ev" style="color:'+E.col+';border-color:'+E.col+'">'+E.n+' · '+fmtT(S.event.left)+'</span>'+ch;}
+  if(S.chal){const C2=CHAL.find(c=>c.id===S.chal);ch='<span class="chip chal">Reto: '+C2.n+' · '+S.L+'/'+CHAL_GOAL[chN(S.chal)]+'</span>'+ch;}
   if(S.mode==='ciclo'){const nn=NA>0.5;ch+='<span class="chip cyc">'+(nn?'Noche':'Día')+' · '+fmtT(cycleLeft())+'</span>';}
   for(const b of buffs)ch+='<span class="chip buff">'+b.n+' · '+Math.ceil(b.left)+'s</span>';
   ch+='<span class="chip rank">'+RANKS[rank()]+'</span>';
@@ -1409,10 +1450,11 @@ function updateUI(){
   tabsEl.querySelectorAll('.tab').forEach(b=>{const d=b.querySelector('.dot');const on=!!dots[b.dataset.t];if(d.hidden===on)d.hidden=!on;});
 
   if(tab==='up'){
-    const s='up'+UPS.map(u=>lv(u.id)).join()+Math.round(F.tap)+S.buyN;
+    const s='up'+S.chal+UPS.map(u=>lv(u.id)).join()+Math.round(F.tap)+S.buyN;
     if(s!==sig){sig=s;body.innerHTML='<div class="h"><h3>Mejoras</h3><span>Toque '+fmt(F.tap)+' · Suerte '+fmt(F.luck)+'</span></div><div class="seg">'+[[1,'×1'],[10,'×10'],['max','Máx']].map(x=>'<button data-act="buyn" data-n="'+x[0]+'" aria-pressed="'+(S.buyN===x[0])+'">'+x[1]+'</button>').join('')+'</div>'+UPS.map(u=>{const l=lv(u.id),mx=l>=u.max;
-      return '<button class="row'+(mx?' max':'')+(popId===u.id?' pop':'')+'" style="--c:'+u.col+'" data-act="up" data-id="'+u.id+'"><span class="ico">'+u.ic+'</span><div class="n">'+u.n+'<small>nv '+l+'</small></div><div class="d">'+u.d(l)+'</div><div class="c">'+(mx?'Máx':fmt(upCost(u)))+'</div><i class="prog"></i></button>';}).join('');popId=null;}
-    UPS.forEach(u=>{const el=body.querySelector('[data-id="'+u.id+'"]');if(el&&lv(u.id)<u.max){const k=upK(u),c=upCostK(u,k),ok=S.savia>=c;el.classList.toggle('no',!ok);el.classList.toggle('can',ok);const ce=el.querySelector('.c');const ct=fmt(c)+(k>1?' ×'+k:'');if(ce.textContent!==ct)ce.textContent=ct;el.querySelector('.prog').style.width=Math.min(100,S.savia/c*100)+'%';}});
+      return '<button class="row'+(mx?' max':'')+(popId===u.id?' pop':'')+'" style="--c:'+u.col+'" data-act="up" data-id="'+u.id+'"><span class="ico">'+u.ic+'</span><div class="n">'+u.n+'<small>nv '+l+'</small></div><div class="d">'+u.d(l)+'</div><div class="c">'+(mx?'Máx':fmt(upCost(u)))+'</div><i class="prog"></i></button>';}).join('');popId=null;
+      if(chOn('sinfuerza')){const el=body.querySelector('[data-id="fuerza"]');if(el){el.classList.add('max');el.querySelector('.d').textContent='Bloqueada por el reto Manos atadas';el.querySelector('.c').textContent='—';}}}
+    UPS.forEach(u=>{const el=body.querySelector('[data-id="'+u.id+'"]');if(el&&lv(u.id)<u.max&&!(u.id==='fuerza'&&chOn('sinfuerza'))){const k=upK(u),c=upCostK(u,k),ok=S.savia>=c;el.classList.toggle('no',!ok);el.classList.toggle('can',ok);const ce=el.querySelector('.c');const ct=fmt(c)+(k>1?' ×'+k:'');if(ce.textContent!==ct)ce.textContent=ct;el.querySelector('.prog').style.width=Math.min(100,S.savia/c*100)+'%';}});
   }
   else if(tab==='eq'){
     const s='eq'+JSON.stringify(S.am)+JSON.stringify(S.eq)+Math.floor(Math.log10(S.savia+1)*4);
@@ -1489,6 +1531,7 @@ function updateUI(){
           ['Polvo estelar','Se gana al ascender y enciende estrellas en las Constelaciones. No se pierde nunca.']];
         let h='<div class="h"><h3>Ayuda</h3><span>Cómo funciona cada parte</span></div><div class="slot"><div class="slot-h"><b>Monedas</b></div>'+coins.map(c=>'<div class="note"><b style="color:var(--fg)">'+c[0]+'.</b> '+c[1]+'</div>').join('')+'</div>';
         for(const k of ['eq','sk','mi','hu','di','po','ru','sa','boss','es','cs']){const g=GUIDES[k];h+='<div class="frag"><b>'+g[0]+'</b><p>'+g[1]+'</p></div>';}
+        h+='<div class="frag"><b>Retos</b><p>Tras el primer portal, en Portal → Retos puedes empezar partidas con una regla especial. Si llegas al nivel que piden (15, 25 y 35), ganas un bonus permanente. No se puede cruzar el portal en mitad de un reto, pero puedes abandonarlo cuando quieras.</p></div>';
         h+='<div class="frag"><b>Maestría</b><p>Cada tipo de fruto sube de maestría cuanto más lo cosechas (10, 30, 60, 100… frutos). Cada nivel da +5% de savia y experiencia con ese fruto y +1% de savia en general. Se ve en el herbario y no se pierde nunca.</p></div>';
         h+='<div class="frag"><b>Escenarios</b><p>Cada vez que asciendes, el árbol viaja a un lugar nuevo: claro del bosque, orilla del lago, montaña y jardín de nubes. Cada uno tiene su paisaje y su bonus.</p></div>';
         h+='<div class="frag"><b>Día y noche</b><p>El jardín pasa por el día, el atardecer, la noche y el amanecer cada 20 minutos de tiempo real. De día la savia rinde un 10% más; de noche tienes +3 de suerte y los visitantes llegan más a menudo. Puedes fijarlo en Ajustes.</p></div>';
@@ -1526,6 +1569,16 @@ function updateUI(){
         +'<div class="cosg"><button class="cosb" data-act="exp">Copiar código de partida</button><button class="cosb" data-act="imp">Cargar el código pegado</button></div>'
         +'<textarea id="savecode" class="code" placeholder="Pega aquí un código de partida"></textarea></div>'
         +'<button class="big'+(conf?' warn':'')+'" style="background:'+(conf?'':'var(--surface2)')+';color:'+(conf?'':'var(--fg)')+'" data-act="wipe">'+(conf?'Toca otra vez para borrar todo':'Empezar una partida nueva')+'</button>';}}
+  }
+  else if(tab==='po'&&S.psub==='re'){
+    const conf=performance.now()<confirmUntil;const s='re'+S.chal+JSON.stringify(S.chalDone)+conf+S.L+S.portales;
+    if(s!==sig){sig=s;let h=segH(PSUBS(),S.psub,'psub')+'<div class="h"><h3>Retos</h3><span>'+Object.values(S.chalDone).reduce((a,b)=>a+b,0)+' / '+(CHAL.length*3)+' ★</span></div>'
+      +'<div class="note">Un reto empieza una partida nueva con una regla especial, como al cruzar el portal pero sin ganar esencia. Si llegas al nivel que pide, ganas un bonus para siempre. Cada reto tiene tres estrellas: nivel 15, 25 y 35.</div>';
+      if(S.chal){const C2=CHAL.find(c=>c.id===S.chal),g=CHAL_GOAL[chN(S.chal)];h+='<div class="preq done" style="--c:'+C2.col+'"><div class="pn"><i></i>En curso: '+C2.n+'<small>'+C2.r+' · nivel '+S.L+' / '+g+'</small></div><button class="offer" data-act="cha">'+(conf?'¿Seguro?':'Abandonar')+'</button><div class="bar"><i style="width:'+Math.min(100,S.L/g*100)+'%"></i></div></div>';}
+      CHAL.forEach(c=>{const n=chN(c.id),done=n>=3,act=S.chal===c.id;
+        h+='<div class="chal'+(act?' act':'')+(done?' done':'')+'" style="--c:'+c.col+'"><div class="ch-h"><b>'+c.n+'</b><span class="stars">'+'★'.repeat(n)+'<em>'+'★'.repeat(3-n)+'</em></span></div><p>'+c.r+'.</p><div class="ch-f"><span>Premio: <b>'+c.w(1)+'</b> por estrella'+(n?' · llevas '+c.w(1).replace(/^\+(\d+)/,(m,x)=>'+'+(x*n))+'':'')+'</span>'
+          +(done?'<em class="ok">Completado</em>':act?'<em class="ok">En curso</em>':S.chal?'':'<button class="offer" data-act="chs" data-id="'+c.id+'">'+(conf?'Toca otra vez':'Empezar · nv '+CHAL_GOAL[n])+'</button>')+'</div></div>';});
+      body.innerHTML=h;}
   }
   else if(tab==='po'&&S.psub==='cs'){
     const conf=performance.now()<confirmUntil;const s='pc'+S.core+S.polvo+JSON.stringify(S.stars)+selStar+S.sc+conf;
@@ -1607,7 +1660,7 @@ function updateUI(){
   }
 }
 let hiddenAt=0;dailyCheck();
-document.addEventListener('visibilitychange',()=>{if(document.hidden){hiddenAt=Date.now();save();musicStop();}else if(hiddenAt){const h=hiddenAt;hiddenAt=0;t0=performance.now();offline(h);dailyCheck();updateUI();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){hiddenAt=Date.now();save();musicStop();}else if(hiddenAt){const h=hiddenAt;hiddenAt=0;t0=performance.now();offline(h);returnSummary((Date.now()-h)/1000);dailyCheck();updateUI();}});
 window.addEventListener('pagehide',save);
 updateUI();requestAnimationFrame(frame);
 })();
