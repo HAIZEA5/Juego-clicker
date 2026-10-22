@@ -479,9 +479,9 @@ const UPS=[
  {id:'nectar',col:'#ffd166',n:'Néctar',ic:I.drop,d:l=>'Los visitantes vienen un '+(10*l)+'% más a menudo',c:800,g:1.7,max:10},
 ];
 const RK=[null,
- {n:'Llave de plata',r:1,req:3,c:60,g:1.55,max:15,ch:l=>l?2.5+1*(l-1):0},
- {n:'Llave de amatista',r:2,req:8,c:900,g:1.6,max:12,ch:l=>l?0.5+0.2*(l-1):0},
- {n:'Llave dorada',r:3,req:15,c:20000,g:1.7,max:10,ch:l=>l?0.1+0.05*(l-1):0}];
+ {n:'Llave de plata',r:1,req:3,c:60,g:1.75,max:12,ch:l=>l?2+0.8*(l-1):0},
+ {n:'Llave de amatista',r:2,req:8,c:1500,g:1.8,max:12,ch:l=>l?0.4+0.15*(l-1):0},
+ {n:'Llave dorada',r:3,req:15,c:40000,g:1.85,max:10,ch:l=>l?0.1+0.04*(l-1):0}];
 const rkl=i=>(S.rk&&S.rk[i])||0, rkOpen=i=>S.maxL>=RK[i].req&&(i===1||rkl(i-1)>0), rkCost=i=>RK[i].c*Math.pow(RK[i].g,rkl(i));
 const KEYIC='<svg viewBox="0 0 24 24"><circle cx="7.5" cy="12" r="4"/><circle cx="7.5" cy="12" r="1.3"/><path d="M11.5 12H21M17 12v3.5M20 12v2.5"/></svg>';
 const tapBase=l=>1+0.5*l+0.02*l*l;
@@ -739,7 +739,7 @@ function fmt(n){
 // ---------- reglas ----------
 const starOn=id=>!!(S.stars&&S.stars[id]);
 const lv=id=>S.up[id]||0, sk=id=>!!S.sk[id]&&S.chal!=='ayuno', sa=id=>S.sa[id]||0, cr=id=>S.cr[id]||0, seasonOn=()=>S.portales>=3, inS=i=>seasonOn()&&S.season===i;
-function amVal(t){const r=S.eq[t.id];if(r==null)return 0;const l=S.am[t.id+'_'+r]||1;return t.base[r]*(1+0.5*(l-1))*(sk('f3')?1.5:1);}
+function amVal(t){const r=S.eq[t.id];if(r==null)return 0;const l=S.am[t.id+'_'+r]||1;return t.base[r]*(1+0.3*(l-1))*(sk('f3')?1.5:1);}
 function herbStats(){let n=0,rows=0;TIERS.forEach((_,i)=>{let c=0;for(let r=0;r<4;r++)if(S.herb[i+'_'+r]){n++;c++;}if(c===4)rows++;});
   const m=sk('f5')?2:1;return {n,rows,sv:1+0.02*n*m,xp:1+0.02*n*m,tap:1+0.1*rows*m};}
 let fxC=null,fxT=0;function bumpFx(){fxC=null;}
@@ -753,17 +753,17 @@ function fxCalc(){
   const xpm=(1+0.15*chN('ayuno'))*(biome()===3?1.3:1)*(starOn('s3')?2:1)*ST*(1+amVal(AM[3])/100)*(1+0.1*lv('raices'))*(sk('r8')?5:1)*(sk('r9')?3:1)*et*H.xp*(sk('r1')?1.25:1)*(sk('r3')?1.5:1)*(sk('r4')?2:1)*(sk('r6')?3:1)*(1+0.1*cr('buho'))*(1+0.25*S.seals[0])*(inS(0)?1.5:1);
   const autoRate=chOn('sinviento')?0:VIENTO[Math.max(sa('viento'),starOn('m1')?3:0)]+cr('libelula');
   const autoPow=(1+0.25*chN('sinviento'))*tap*(sa('vendaval')?1:0.5);
-  const amChance=(evOn('niebla')?3:1)*(0.06+0.015*lv('botin')+(sk('f2')?0.05:0))*(sk('f8')?2:1)*(1+0.25*S.seals[2])*(inS(2)?1.5:1);
+  const amChance=(evOn('niebla')?3:1)*(0.04+0.01*lv('botin')+(sk('f2')?0.04:0))*(sk('f8')?2:1)*(1+0.25*S.seals[2])*(inS(2)?1.5:1);
   return {luck,tap,sv,xpm,autoRate,autoPow,crit:0.03*chN('duro')+(sk('c6')?0.25:sk('c2')?0.1:0)+0.02*lv('filo'),critM:(sk('c6')?10:5)*(sk('c8')?2:1),amChance,racimo:0.03*lv('racimo')+(sk('r5')?0.1:0)+0.05*cr('colmena')+(inS(2)?0.2:0)};
 }
-const xpNeed=L=>Math.ceil(100*Math.pow(1.2,L-1))+20*L;
+const xpNeed=L=>Math.ceil(100*Math.pow(1.2,L-1)*Math.pow(1.06,Math.max(0,L-8)))+20*L;
 const fruitXp=(L,r)=>FR_XP[r]*Math.pow(1.05,L-1);
 const fruitSv=(L,F)=>4*Math.pow(1.12,L-1)*Math.pow(1.25,tierIdx(L))*F.sv;
 const upCost=u=>u.c*Math.pow(u.g,lv(u.id));
 const upMaxK=u=>{const l=lv(u.id),b=u.c*Math.pow(u.g,l);return Math.min(u.max-l,Math.max(0,Math.floor(Math.log(S.savia*(u.g-1)/b+1)/Math.log(u.g))));};
 const upK=u=>{const n=S.buyN||1;return n==='max'?Math.max(1,upMaxK(u)):Math.min(n,u.max-lv(u.id));};
 const upCostK=(u,k)=>u.c*Math.pow(u.g,lv(u.id))*(Math.pow(u.g,k)-1)/(u.g-1);
-const amUpCost=(r,l)=>200*RCOST[r]*Math.pow(1.7,l-1)*Math.pow(1.1,S.L-1);
+const amUpCost=(r,l)=>200*RCOST[r]*Math.pow(1.7,l-1)*Math.pow(1.13,S.L-1);
 function phases(){const k=S.pk,m=Math.pow(3,k),nl=20+3*k,rd=starOn('z3')?0.7:1;return [
  {n:'Raíces',col:'#8ff2c8',reqs:[
    {n:'Nivel del árbol',col:'--accent',need:nl-6,abs:'L'},
@@ -793,7 +793,7 @@ const essGain=()=>(6+3*S.pk+Math.max(0,Math.floor((S.L-(20+3*S.pk))/2)))*(inS(3)
 const hpMul=()=>(chOn('duro')?2:1)*(inS(1)?1.3:1)*(inS(3)?2:1)*(1-0.05*cr('erizo'))*(1-0.03*lv('piel'));
 
 function roll(w){const t=w.reduce((a,b)=>a+b,0);let x=Math.random()*t;for(let i=0;i<w.length;i++){x-=w[i];if(x<0)return i;}return w.length-1;}
-function rarW(F){const w=[0,1,2,3].map(i=>i?RK[i].ch(rkl(i)):0).map((v,i)=>i?v*Math.pow(1+0.06*F.luck,i)*(i===3&&sk('f4')?3:1)*(i>0&&inS(0)?2:1)*(i===3&&inS(3)?4:1)*(i===3&&sk('f9')?5:1)*(evOn('luna')?(i===3?5:i>0?2:1):1):0);w[0]=Math.max(10,100-w[1]-w[2]-w[3]);return w;}
+function rarW(F){const w=[0,1,2,3].map(i=>i?RK[i].ch(rkl(i)):0).map((v,i)=>i?v*(1+F.luck*[0,0.02,0.015,0.01][i])*(i===3&&sk('f4')?3:1)*(i>0&&inS(0)?2:1)*(i===3&&inS(3)?4:1)*(i===3&&sk('f9')?5:1)*(evOn('luna')?(i===3?5:i>0?2:1):1):0);w[0]=Math.max(10,100-w[1]-w[2]-w[3]);return w;}
 function keysHtml(){const F=fx(),w=rarW(F),t=w.reduce((a,b)=>a+b,0),pc=x=>{x*=100;return (x<1?x.toFixed(2):x<10?x.toFixed(1):Math.round(x)).toString().replace('.',',')+'%';};
   return '<div class="h sm"><h3>Llaves de rareza</h3><span>Sin llave, solo comunes</span></div>'+[1,2,3].map(i=>{const K=RK[i],l=rkl(i),op=rkOpen(i),mx=l>=K.max,col=RAR[K.r].col;
     const d=!op?(S.maxL<K.req?'Se abre en el nivel '+K.req:'Necesitas la '+RK[i-1].n.toLowerCase()):l?'El fruto tiene un <b>'+pc(w[i]/t)+'</b> de salir '+RAR[K.r].n+(mx?'':' · siguiente '+(K.ch(l+1)).toFixed(2).replace(/\.?0+$/,'').replace('.',',')+'% base'):'Abre los frutos <b>'+RAR[K.r].n+'s</b> ('+K.ch(1).toString().replace('.',',')+'% base)';
@@ -854,12 +854,12 @@ function openFruit(silent,auto){
 }
 function dropAmulet(fr,F,silent,minR){bumpFx();
   const t=AM[Math.floor(Math.random()*AM.length)];
-  const w=[70,22,7,1].map((v,i)=>i<(minR||0)?0:v*Math.pow(1+0.15*F.luck+0.4*fr,i)*(i===3&&sk('f6')?3:1));
+  const w=[75,20,4.5,0.5].map((v,i)=>i<(minR||0)?0:v*Math.pow(1+0.02*F.luck+0.4*fr,i)*(i===3&&sk('f6')?3:1));
   const r=roll(w);const key=t.id+'_'+r;const had=S.am[key];
-  S.am[key]=(had||0)+1;
+  S.am[key]=(had||0)+(had&&had>=5?0:1);
   if(S.eq[t.id]==null||S.eq[t.id]<r)S.eq[t.id]=r;
   S.st.amulets++;ev('amulet',1);if(r>=1)ev('amrare',1);
-  if(!silent)toast('Amuleto: <b style="color:var('+RAR[r].col+')">'+t.n+' '+MAT[r]+'</b>'+(had?' · sube a nv '+S.am[key]:' · ¡nuevo!'),'am');
+  if(!silent)toast('Amuleto: <b style="color:var('+RAR[r].col+')">'+t.n+' '+MAT[r]+'</b>'+(had?(had>=5?' · repetido (desde nv 5 se mejora con savia)':' · sube a nv '+S.am[key]):' · ¡nuevo!'),'am');
   
 }
 function hit(power,auto){
@@ -996,7 +996,7 @@ while(S.mis.length<3)S.mis.push(newMission());
 function ev(k,n){for(const m of S.mis)if(m.k===k&&m.p<m.g){m.p=Math.min(m.g,m.p+n);}if(k==='open'||k==='rare'||k==='epic'||k==='buy'||k==='mis')S.portal.c[k]=(S.portal.c[k]||0)+n;}
 function misProg(m){return m.k==='level'?Math.min(m.g,S.L):m.p;}
 function rewardOf(m){const F=fx();const rm=1+0.25*rank();
-  return {sv:fruitSv(S.L,F)*[5,12,30][m.d-1]*rm*(sk('r2')?2:1)*(1+0.2*cr('arana')),xp:xpNeed(S.L)*[0.1,0.2,0.4][m.d-1],am:m.d>=2,sp:m.d===3?1:0};}
+  return {sv:fruitSv(S.L,F)*[5,12,30][m.d-1]*rm*(sk('r2')?2:1)*(1+0.2*cr('arana')),xp:xpNeed(S.L)*[0.05,0.1,0.2][m.d-1],am:m.d>=2,sp:m.d===3?1:0};}
 function rewardText(m){const r=rewardOf(m);return '+'+fmt(r.sv)+' savia · +exp'+(r.am?' · amuleto':'')+(r.sp?' · +1 punto':'');}
 function claim(i){const m=S.mis[i];if(misProg(m)<m.g)return;const r=rewardOf(m);const F=fx();
   gain(r.sv);addXp(r.xp);if(r.am)dropAmulet(m.d,F,false);if(r.sp){S.sp+=r.sp;}
@@ -1321,11 +1321,12 @@ function tick(dt){const F=fx();
 // ---------- toques ----------
 const hint=document.getElementById('hint');
 document.addEventListener('pointerdown',()=>{if(S.music&&!MU)musicStart();},{capture:true});
-stage.addEventListener('pointerdown',e=>{const rc=stage.getBoundingClientRect();
+let lastTapT=0;stage.addEventListener('pointerdown',e=>{const rc=stage.getBoundingClientRect();
   const stEl=document.getElementById('story');if(!stEl.hidden&&e.target.closest('.story')){stEl.hidden=true;showStory();return;}
   if(e.target.closest('#bossbtn')){if(bossReady())startBoss();return;}
   if(e.target.closest('#runebtn')){S.runic=!S.runic;if(!S.fruit.boss)newFruit();sfx('tap');guide('ru');toast(S.runic?'Ahora cosechas <b style="color:var(--rune)">frutos rúnicos</b>: más duros y con menos savia, pero pueden dar llaves':'Vuelves a los frutos normales','rm');updateUI();return;}
   if(vis){const P=visPos(vis);if(Math.hypot(P.x-(e.clientX-rc.left),P.y-(e.clientY-rc.top))<38){catchVis();return;}}
+  {const nt=performance.now();if(nt-lastTapT<90)return;lastTapT=nt;}
   sfx('tap');rings.push({x:e.clientX-rc.left,y:e.clientY-rc.top,r:4,life:0.35,col:'rgba(143,242,200,.8)'});hit(fx().tap,false);S.taps++;S.st.run.taps++;ev('taps',1);if(S.taps>=8)hint.style.opacity=0;});
 let floats=0;
 function floatAt(x,y,txt,cls){if(floats>16)return;floats++;const d=document.createElement('div');d.className='float '+(cls||'');d.textContent=txt;
