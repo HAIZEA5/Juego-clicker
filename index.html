@@ -374,6 +374,7 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .hrow{background:linear-gradient(90deg,rgba(255,255,255,.03),rgba(255,255,255,0)),var(--bg2)}
 .cell:not(.no){box-shadow:0 0 12px -6px currentColor}
 @media (prefers-reduced-motion: reduce){.claim{animation:none}.row.pop{animation:none}}
+.h.sm{margin-top:10px}.h.sm h3{font-size:14px}.rkrow .ico{color:var(--c)}.rkrow.lock{opacity:.55}.rkrow.lock .ico{filter:grayscale(1)}
 </style>
 
 </head>
@@ -477,6 +478,12 @@ const UPS=[
  {id:'filo',col:'#ff6b8a',n:'Filo',ic:I.up,d:l=>'+'+(2*l)+'% de probabilidad de golpe crítico',c:1000,g:1.7,max:15},
  {id:'nectar',col:'#ffd166',n:'Néctar',ic:I.drop,d:l=>'Los visitantes vienen un '+(10*l)+'% más a menudo',c:800,g:1.7,max:10},
 ];
+const RK=[null,
+ {n:'Llave de plata',r:1,req:3,c:60,g:1.55,max:15,ch:l=>l?2.5+1*(l-1):0},
+ {n:'Llave de amatista',r:2,req:8,c:900,g:1.6,max:12,ch:l=>l?0.5+0.2*(l-1):0},
+ {n:'Llave dorada',r:3,req:15,c:20000,g:1.7,max:10,ch:l=>l?0.1+0.05*(l-1):0}];
+const rkl=i=>(S.rk&&S.rk[i])||0, rkOpen=i=>S.maxL>=RK[i].req&&(i===1||rkl(i-1)>0), rkCost=i=>RK[i].c*Math.pow(RK[i].g,rkl(i));
+const KEYIC='<svg viewBox="0 0 24 24"><circle cx="7.5" cy="12" r="4"/><circle cx="7.5" cy="12" r="1.3"/><path d="M11.5 12H21M17 12v3.5M20 12v2.5"/></svg>';
 const tapBase=l=>1+0.5*l+0.02*l*l;
 const AM=[
  {id:'semilla',n:'Semilla',what:'fuerza de toque',base:[10,25,60,150],pct:true},
@@ -694,7 +701,7 @@ function applyMode(){NA=nightAmt();document.documentElement.dataset.mode=UIN()?'
 
 // ---------- estado ----------
 const KEY='savia-idle-v6';
-const fresh=()=>({chal:null,chalDone:{},mast:{},core:0,music:false,evNext:600,event:null,guides:{},daily:{last:'',streak:0},savia:0,all:0,L:1,xp:0,maxL:1,up:{},sk:{},sp:0,am:{},eq:{},herb:{},esencia:0,essTotal:0,portales:0,sa:{},portal:{ph:0,c:{},off:{},k:0},keys:0,runic:false,story:{},ach:{},st:{time:0,byR:[0,0,0,0],crit:0,vis:0},boss:{},polvo:0,stars:{},asc:0,sc:0,seeds:[0,0,0],plots:[],selSeed:0,sound:true,eco:false,unl:{up:1},buyN:1,sub:'he',psub:'po',ssub:'au',season:0,pk:0,seals:[0,0,0,0],cr:{},cos:{tree:'natural',sky:'noche',leaf:'oval'},mode:'ciclo',cyc1:1,frutos:0,taps:0,
+const fresh=()=>({rk:{},chal:null,chalDone:{},mast:{},core:0,music:false,evNext:600,event:null,guides:{},daily:{last:'',streak:0},savia:0,all:0,L:1,xp:0,maxL:1,up:{},sk:{},sp:0,am:{},eq:{},herb:{},esencia:0,essTotal:0,portales:0,sa:{},portal:{ph:0,c:{},off:{},k:0},keys:0,runic:false,story:{},ach:{},st:{time:0,byR:[0,0,0,0],crit:0,vis:0},boss:{},polvo:0,stars:{},asc:0,sc:0,seeds:[0,0,0],plots:[],selSeed:0,sound:true,eco:false,unl:{up:1},buyN:1,sub:'he',psub:'po',ssub:'au',season:0,pk:0,seals:[0,0,0,0],cr:{},cos:{tree:'natural',sky:'noche',leaf:'oval'},mode:'ciclo',cyc1:1,frutos:0,taps:0,
   mis:[],mdone:0,fruit:null,last:Date.now()});
 let S=fresh();
 let restored=false;
@@ -706,6 +713,7 @@ function migrate(){
   if(S.semillas){S.esencia+=S.semillas;delete S.semillas;}delete S.replantes;
   if(!S.portal||S.portal.ph==null)S.portal={ph:0,c:{},off:{},k:0};if(S.portal.k==null)S.portal.k=0;
   if(S.pk===0&&S.portales&&!S.seals.some(x=>x))S.pk=S.portales;
+  if(!S.rk)S.rk={};if(!S.rkMig){S.rkMig=1;for(let r=1;r<4;r++)if(Object.keys(S.herb||{}).some(k=>k.endsWith('_'+r)))S.rk[r]=Math.max(1,S.rk[r]||0);}
   if(!S.mast)S.mast={};if(!S.chalDone)S.chalDone={};
   if(!Array.isArray(S.seeds))S.seeds=[0,0,0];if(!Array.isArray(S.plots))S.plots=[];
   if(!S.unl||!S.unl.up)S.unl={up:1};
@@ -785,7 +793,11 @@ const essGain=()=>(6+3*S.pk+Math.max(0,Math.floor((S.L-(20+3*S.pk))/2)))*(inS(3)
 const hpMul=()=>(chOn('duro')?2:1)*(inS(1)?1.3:1)*(inS(3)?2:1)*(1-0.05*cr('erizo'))*(1-0.03*lv('piel'));
 
 function roll(w){const t=w.reduce((a,b)=>a+b,0);let x=Math.random()*t;for(let i=0;i<w.length;i++){x-=w[i];if(x<0)return i;}return w.length-1;}
-function rarW(F){return FR_W.map((v,i)=>v*Math.pow(1+0.06*F.luck,i)*(i===3&&sk('f4')?3:1)*(i>0&&inS(0)?2:1)*(i===3&&inS(3)?4:1)*(i===3&&sk('f9')?5:1)*(evOn('luna')?(i===3?5:i>0?2:1):1));}
+function rarW(F){const w=[0,1,2,3].map(i=>i?RK[i].ch(rkl(i)):0).map((v,i)=>i?v*Math.pow(1+0.06*F.luck,i)*(i===3&&sk('f4')?3:1)*(i>0&&inS(0)?2:1)*(i===3&&inS(3)?4:1)*(i===3&&sk('f9')?5:1)*(evOn('luna')?(i===3?5:i>0?2:1):1):0);w[0]=Math.max(10,100-w[1]-w[2]-w[3]);return w;}
+function keysHtml(){const F=fx(),w=rarW(F),t=w.reduce((a,b)=>a+b,0),pc=x=>{x*=100;return (x<1?x.toFixed(2):x<10?x.toFixed(1):Math.round(x)).toString().replace('.',',')+'%';};
+  return '<div class="h sm"><h3>Llaves de rareza</h3><span>Sin llave, solo comunes</span></div>'+[1,2,3].map(i=>{const K=RK[i],l=rkl(i),op=rkOpen(i),mx=l>=K.max,col=RAR[K.r].col;
+    const d=!op?(S.maxL<K.req?'Se abre en el nivel '+K.req:'Necesitas la '+RK[i-1].n.toLowerCase()):l?'El fruto tiene un <b>'+pc(w[i]/t)+'</b> de salir '+RAR[K.r].n+(mx?'':' · siguiente '+(K.ch(l+1)).toFixed(2).replace(/\.?0+$/,'').replace('.',',')+'% base'):'Abre los frutos <b>'+RAR[K.r].n+'s</b> ('+K.ch(1).toString().replace('.',',')+'% base)';
+    return '<button class="row rkrow'+(op?'':' lock')+(mx?' max':'')+'" style="--c:var('+col+')" data-act="rk" data-rk="'+i+'"'+(op?'':' disabled')+'><span class="ico">'+KEYIC+'</span><div class="n">'+K.n+'<small>'+(l?'nv '+l:op?'nueva':'bloqueada')+'</small></div><div class="d">'+d+'</div><div class="c">'+(!op?'—':mx?'Máx':fmt(rkCost(i)))+'</div><i class="prog"></i></button>';}).join('');}
 function newFruit(){bornAt=performance.now();
   const F=fx();const w=rarW(F);
   const ru=(S.runic&&runeOn())||chOn('runico');const r=roll(w);const max=40*Math.pow(1.19,S.L-1)*FR_HP[r]*hpMul()*Math.max(1,2-0.2*(S.L-1))*(ru?2.5:1);
@@ -951,9 +963,9 @@ function catchVis(){setTimeout(bumpFx,0);const v=vis;vis=null;S.st.vis++;sfx('vi
 // ---------- misiones ----------
 const MT=[
  {k:'open',  t:g=>'Abre '+fmt(g)+' frutos', g:L=>20+L*2, ok:()=>true},
- {k:'rare',  t:g=>'Abre '+fmt(g)+' frutos raros o mejores', g:L=>3+Math.floor(L/8), ok:()=>true},
- {k:'epic',  t:g=>'Abre '+fmt(g)+' fruto'+(g>1?'s':'')+' épico'+(g>1?'s':'')+' o mejor', g:L=>1+Math.floor(L/25), ok:L=>L>=5},
- {k:'legend',t:()=>'Abre un fruto legendario', g:()=>1, fixed:3, ok:L=>L>=12},
+ {k:'rare',  t:g=>'Abre '+fmt(g)+' frutos raros o mejores', g:L=>3+Math.floor(L/8), ok:()=>rkl(1)>0},
+ {k:'epic',  t:g=>'Abre '+fmt(g)+' fruto'+(g>1?'s':'')+' épico'+(g>1?'s':'')+' o mejor', g:L=>1+Math.floor(L/25), ok:L=>L>=5&&rkl(2)>0},
+ {k:'legend',t:()=>'Abre un fruto legendario', g:()=>1, fixed:3, ok:L=>L>=12&&rkl(3)>0},
  {k:'savia', t:g=>'Consigue '+fmt(g)+' de savia', g:(L,F)=>fruitSv(L,F)*40, ok:()=>true},
  {k:'taps',  t:g=>'Haz '+fmt(g)+' toques', g:L=>100+L*5, ok:()=>true},
  {k:'crit',  t:g=>'Haz '+fmt(g)+' golpes críticos', g:L=>10+L, ok:()=>sk('c2')},
@@ -1330,7 +1342,7 @@ function sproutSvg(p){const D=SEEDS[p.s].dur*growMul()*1000,f=Math.min(1,1-plotL
   return '<svg class="spr" viewBox="0 0 60 50"><path d="M30 46V'+(46-h)+'" stroke="var(--c)" stroke-width="2.4" fill="none"/>'+(f>0.3?'<ellipse cx="'+(30-6*f)+'" cy="'+(46-h*0.6)+'" rx="'+(7*f)+'" ry="'+(3*f+1)+'" fill="var(--c)" opacity=".85" transform="rotate(-25 '+(30-6*f)+' '+(46-h*0.6)+')"/><ellipse cx="'+(30+6*f)+'" cy="'+(46-h*0.75)+'" rx="'+(7*f)+'" ry="'+(3*f+1)+'" fill="var(--c)" opacity=".85" transform="rotate(25 '+(30+6*f)+' '+(46-h*0.75)+')"/>':'')+(f>=1?'<circle cx="30" cy="'+(46-h-4)+'" r="6" fill="var(--c)"/>':'')+'</svg>';}
 function PSUBS(){const l=[['po','Portal']];if(S.portales>=1)l.push(['re','Retos']);l.push(['es','Estaciones']);if(seasonOn())l.push(['cs','Constelaciones']);return l;}
 // Lo que se conserva en cualquier reinicio
-const KEEP=['chalDone','mast','mode','cyc1','keys','runic','core','lastExport','lastRemind','music','evNext','event','guides','daily','all','herb','frutos','taps','maxL','mis','mdone','cos','story','ach','st','seeds','plots','selSeed','sound','eco','unl','buyN','sub','psub','ssub','polvo','stars','asc','portales','essTotal','last'];
+const KEEP=['rk','rkMig','chalDone','mast','mode','cyc1','keys','runic','core','lastExport','lastRemind','music','evNext','event','guides','daily','all','herb','frutos','taps','maxL','mis','mdone','cos','story','ach','st','seeds','plots','selSeed','sound','eco','unl','buyN','sub','psub','ssub','polvo','stars','asc','portales','essTotal','last'];
 function rebirth(extra){const k={};for(const key of KEEP)k[key]=S[key];S=Object.assign(fresh(),k,extra);S.st.run={start:Date.now(),time:0,taps:0,fruits:0,savia:0,buys:0};
   const st=1+3*sa('brote');S.L=st;S.maxL=Math.max(S.maxL,st);S.sp=Math.floor(st/2);S.mis=S.mis.map(m=>m.k==='level'?Object.assign(m,{g:S.L+2,p:0}):m);
   buffs=[];vis=null;treeKey='';newFruit();portalFx=performance.now();sfx('portal');bumpFx();sig='';}
@@ -1348,6 +1360,9 @@ const skAvail=n=>!sk(n.id)&&(n.idx===0||sk(n.branch.nodes[n.idx-1].id));
 body.addEventListener('click',e=>{bumpFx();setTimeout(bumpFx,0);
   const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
   if(a==='buyn'){S.buyN=b.dataset.n==='max'?'max':+b.dataset.n;sig='';updateUI();}
+  else if(a==='rk'){const i=+b.dataset.rk,K=RK[i];if(!rkOpen(i)||rkl(i)>=K.max)return;const c=rkCost(i);if(S.savia<c){toast('Te falta savia para la <b>'+K.n.toLowerCase()+'</b>');return;}
+    S.savia-=c;const first=!rkl(i);S.rk[i]=rkl(i)+1;S.st.buys++;ev('buy',1);bumpFx();sig='';sfx(first?'ach':'tap');
+    toast(first?'<b style="color:var('+RAR[K.r].col+')">'+K.n+'</b> · ya pueden salir frutos '+RAR[K.r].n+'s':'<b>'+K.n+'</b> · nivel '+S.rk[i]);return;}
   else if(a==='up'){const u=UPS.find(x=>x.id===b.dataset.id);if(lv(u.id)>=u.max)return;if(u.id==='fuerza'&&chOn('sinfuerza')){toast('El reto <b>Manos atadas</b> no te deja comprar fuerza');return;}const k=upK(u),c=upCostK(u,k);
     if(k>0&&S.savia>=c){S.savia-=c;S.up[u.id]=lv(u.id)+k;S.st.buys+=k;S.st.run.buys+=k;ev('buy',k);popId=u.id;sig='';updateUI();}}
   else if(a==='eq'){S.eq[b.dataset.t]=+b.dataset.r;sig='';updateUI();}
@@ -1425,11 +1440,11 @@ function updateUI(){
     document.getElementById('fiBar').style.width=Math.min(100,(mc-pv)/(nx-pv)*100)+'%';
     const ru=S.runic&&runeOn(),base=fruitSv(S.L,F)*(ru?0.5:1)*(1+0.05*ml),xb=fruitXp(S.L,0)*F.xpm*(ru?0.6:1)*(1+0.05*ml);
     const pc=x=>(x*100<1?(x*100).toFixed(1):x*100<10?(x*100).toFixed(1):Math.round(x*100)).toString().replace('.',',')+'%';
-    let row='<span>Savia <b>'+fmt(base*FR_SV[0])+'–'+fmt(base*FR_SV[3])+'</b></span><span>Exp <b>'+fmt(xb*FR_XP[0])+'–'+fmt(xb*FR_XP[3])+'</b></span>';
+    const wR=rarW(F),hr=wR[3]?3:wR[2]?2:wR[1]?1:0;let row='<span>Savia <b>'+fmt(base*FR_SV[0])+(hr?'–'+fmt(base*FR_SV[hr]):'')+'</b></span><span>Exp <b>'+fmt(xb*FR_XP[0])+(hr?'–'+fmt(xb*FR_XP[hr]):'')+'</b></span>';
     if(S.unl.eq||Object.keys(S.am).length)row+='<span>Amuleto <b>'+pc(Math.min(0.9,F.amChance))+'</b></span>';
     if(ru)row+='<span>Llave <b>'+pc(keyChance(0,F))+'</b></span>';
     setT('fiRow',row);
-    const w=rarW(F),tw=w.reduce((a,b)=>a+b,0);setT('fiRar','<span>Rareza</span>'+RAR.map((rr,i)=>'<span title="'+rr.n+'"><i style="background:var('+rr.col+')"></i><b>'+pc(w[i]/tw)+'</b></span>').join('')+'<span>Semilla <b>'+pc(0.03)+'</b></span>');}
+    const w=rarW(F),tw=w.reduce((a,b)=>a+b,0);setT('fiRar','<span>Rareza</span>'+RAR.map((rr,i)=>'<span title="'+rr.n+'"><i style="background:var('+rr.col+')"></i><b>'+(w[i]?pc(w[i]/tw):'—')+'</b></span>').join('')+'<span>Semilla <b>'+pc(0.03)+'</b></span>');}
   const f=S.fruit,r=RAR[f.r];document.getElementById('fbar').style.color=f.r===0?'#f6f2ff':!UIN()?['','#8fd6ff','#e3a6ff','#ffd166'][f.r]:C(r.col);
   const nm=f.boss?'Guardián de '+TIERS[f.t].n.toLowerCase():TIERS[f.t].n+(f.ru?' rúnica':'')+(f.r?' '+r.f:'');if(f.ru&&!f.boss)document.getElementById('fbar').style.color=DAY()?'#9feaff':'var(--rune)';if(f.boss)document.getElementById('fbar').style.color='#ff6b8a';const fn=document.getElementById('fname');if(fn.textContent!==nm)fn.textContent=nm;
   const sub=fmt(Math.max(0,f.hp))+' / '+fmt(f.max)+(f.boss?' · '+Math.max(0,Math.ceil((bossEnd-performance.now())/1000))+' s':'');
@@ -1446,14 +1461,15 @@ function updateUI(){
   for(const b of buffs)ch+='<span class="chip buff">'+b.n+' · '+Math.ceil(b.left)+'s</span>';
   ch+='<span class="chip rank">'+RANKS[rank()]+'</span>';
   const chips=document.getElementById('chips');if(chips.innerHTML!==ch)chips.innerHTML=ch;
-  const dots={hu:S.plots.some(p=>p.s>=0&&plotLeft(p)===0),di:false,po:false,up:UPS.some(u=>lv(u.id)<u.max&&S.savia>=upCost(u)),sk:SKALL.some(n=>skAvail(n)&&S.sp>=n.p),mi:S.mis.some(m=>misProg(m)>=m.g),po:phaseDone()||(S.keys>0&&S.portal.k<KEYS_N)||(seasonOn()&&S.pk>=3),sa:SA.some(it=>sa(it.id)<it.max&&S.esencia>=it.cost(sa(it.id)))||CR.some(c=>cr(c.id)<c.max&&S.esencia>=crCost(c,cr(c.id)))};
+  const dots={hu:S.plots.some(p=>p.s>=0&&plotLeft(p)===0),di:false,po:false,up:UPS.some(u=>lv(u.id)<u.max&&S.savia>=upCost(u))||[1,2,3].some(i=>rkOpen(i)&&rkl(i)<RK[i].max&&S.savia>=rkCost(i)),sk:SKALL.some(n=>skAvail(n)&&S.sp>=n.p),mi:S.mis.some(m=>misProg(m)>=m.g),po:phaseDone()||(S.keys>0&&S.portal.k<KEYS_N)||(seasonOn()&&S.pk>=3),sa:SA.some(it=>sa(it.id)<it.max&&S.esencia>=it.cost(sa(it.id)))||CR.some(c=>cr(c.id)<c.max&&S.esencia>=crCost(c,cr(c.id)))};
   tabsEl.querySelectorAll('.tab').forEach(b=>{const d=b.querySelector('.dot');const on=!!dots[b.dataset.t];if(d.hidden===on)d.hidden=!on;});
 
   if(tab==='up'){
-    const s='up'+S.chal+UPS.map(u=>lv(u.id)).join()+Math.round(F.tap)+S.buyN;
-    if(s!==sig){sig=s;body.innerHTML='<div class="h"><h3>Mejoras</h3><span>Toque '+fmt(F.tap)+' · Suerte '+fmt(F.luck)+'</span></div><div class="seg">'+[[1,'×1'],[10,'×10'],['max','Máx']].map(x=>'<button data-act="buyn" data-n="'+x[0]+'" aria-pressed="'+(S.buyN===x[0])+'">'+x[1]+'</button>').join('')+'</div>'+UPS.map(u=>{const l=lv(u.id),mx=l>=u.max;
+    const s='up'+S.chal+UPS.map(u=>lv(u.id)).join()+Math.round(F.tap)+S.buyN+JSON.stringify(S.rk)+[1,2,3].map(rkOpen).join();
+    if(s!==sig){sig=s;body.innerHTML='<div class="h"><h3>Mejoras</h3><span>Toque '+fmt(F.tap)+' · Suerte '+fmt(F.luck)+'</span></div><div class="seg">'+[[1,'×1'],[10,'×10'],['max','Máx']].map(x=>'<button data-act="buyn" data-n="'+x[0]+'" aria-pressed="'+(S.buyN===x[0])+'">'+x[1]+'</button>').join('')+'</div>'+keysHtml()+'<div class="h sm"><h3>Cuidados del árbol</h3></div>'+UPS.map(u=>{const l=lv(u.id),mx=l>=u.max;
       return '<button class="row'+(mx?' max':'')+(popId===u.id?' pop':'')+'" style="--c:'+u.col+'" data-act="up" data-id="'+u.id+'"><span class="ico">'+u.ic+'</span><div class="n">'+u.n+'<small>nv '+l+'</small></div><div class="d">'+u.d(l)+'</div><div class="c">'+(mx?'Máx':fmt(upCost(u)))+'</div><i class="prog"></i></button>';}).join('');popId=null;
       if(chOn('sinfuerza')){const el=body.querySelector('[data-id="fuerza"]');if(el){el.classList.add('max');el.querySelector('.d').textContent='Bloqueada por el reto Manos atadas';el.querySelector('.c').textContent='—';}}}
+    [1,2,3].forEach(i=>{const el=body.querySelector('[data-rk="'+i+'"]');if(el&&rkOpen(i)&&rkl(i)<RK[i].max){const c=rkCost(i),ok=S.savia>=c;el.classList.toggle('no',!ok);el.classList.toggle('can',ok);el.querySelector('.prog').style.width=Math.min(100,S.savia/c*100)+'%';}});
     UPS.forEach(u=>{const el=body.querySelector('[data-id="'+u.id+'"]');if(el&&lv(u.id)<u.max&&!(u.id==='fuerza'&&chOn('sinfuerza'))){const k=upK(u),c=upCostK(u,k),ok=S.savia>=c;el.classList.toggle('no',!ok);el.classList.toggle('can',ok);const ce=el.querySelector('.c');const ct=fmt(c)+(k>1?' ×'+k:'');if(ce.textContent!==ct)ce.textContent=ct;el.querySelector('.prog').style.width=Math.min(100,S.savia/c*100)+'%';}});
   }
   else if(tab==='eq'){
@@ -1507,7 +1523,7 @@ function updateUI(){
     const s='di'+sub+H.n+S.L+(sub==='he'?Object.values(S.mast).reduce((a,b)=>a+b,0):mTotal())+'|'+Object.keys(S.story).length+Object.keys(S.ach).length+S.sound+S.eco+S.music+S.mode+conf+JSON.stringify(S.cos)+(sub==='es'?Math.floor(S.st.time/2):'');
     if(s!==sig){sig=s;let top='<div class="seg">'+SUBS.map(x=>'<button data-act="sub" data-s="'+x[0]+'" aria-pressed="'+(x[0]===sub)+'">'+x[1]+'</button>').join('')+'</div>';
       if(sub==='he'){let h='<div class="h"><h3>Herbario</h3><span>'+H.n+' / '+(TIERS.length*4)+' · +'+Math.round((H.sv-1)*100)+'% savia y exp · +'+Math.round((H.tap-1)*100)+'% toque</span></div>'
-      +'<div class="note">Cada fruto nuevo que abres se apunta aquí para siempre. Una fila completa da +10% de fuerza de toque. No se pierde al cruzar el portal.</div><div class="herb">';
+      +'<div class="note">Cada fruto nuevo que abres se apunta aquí para siempre. Una fila completa da +10% de fuerza de toque. La maestría es una por fruto: suma igual un fruto común que uno legendario. No se pierde al cruzar el portal.</div><div class="herb">';
       TIERS.forEach((T,i)=>{const seen=S.maxL>=T.l||S.L>=T.l;let c=0;let cells='';
         for(let r=0;r<4;r++){const has=S.herb[i+'_'+r];if(has)c++;cells+=has?'<div class="cell" style="border-color:color-mix(in srgb,var('+RAR[r].col+') 55%,var(--line))"><img alt="'+T.n+' '+RAR[r].f+'" src="'+fruitIcon(i,r)+'"></div>':'<div class="cell no">?</div>';}
         const mc=S.mast[i]||0,ml=mlv(mc),mp=mc?Math.min(100,(mc-mNeed(ml))/(mNeed(ml+1)-mNeed(ml))*100):0;const mtx='Maestría '+ml+' · '+fmt(mc-mNeed(ml))+'/'+fmt(mNeed(ml+1)-mNeed(ml))+(ml?' · +'+(5*ml)+'%':'');
